@@ -5,7 +5,7 @@ import logging
 import os
 from datetime import timezone
 
-from telegram import Bot
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.database import Report, update_report_channel_msg
 from bot.services.collage import create_grid_collage
@@ -13,6 +13,9 @@ from bot.services.collage import create_grid_collage
 logger = logging.getLogger(__name__)
 
 CHANNEL_ID = os.getenv("CHANNEL_ID", "")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "")
+CHANNEL_INVITE = os.getenv("CHANNEL_INVITE", "")
+GROUP_INVITE = os.getenv("GROUP_INVITE", "")
 
 
 def _format_report_caption(report: Report) -> str:
@@ -51,6 +54,9 @@ def _format_report_caption(report: Report) -> str:
     lines.extend([
         "",
         "#ScamCasino #Report #Scam",
+        "",
+        "━━━━━━━━━━━━━━━━━━━━━━━",
+        "⬇️ <b>Join kami untuk info terkini!</b>",
     ])
 
     return "\n".join(lines)
@@ -65,10 +71,37 @@ def _escape(text: str) -> str:
     )
 
 
+def _get_promo_keyboard() -> InlineKeyboardMarkup | None:
+    """Build inline keyboard with promo links."""
+    buttons = []
+
+    if BOT_USERNAME:
+        buttons.append(
+            InlineKeyboardButton("🤖 Report Scam", url=f"https://t.me/{BOT_USERNAME}")
+        )
+
+    if CHANNEL_INVITE:
+        buttons.append(
+            InlineKeyboardButton("📢 Channel", url=CHANNEL_INVITE)
+        )
+
+    if GROUP_INVITE:
+        buttons.append(
+            InlineKeyboardButton("👥 Group", url=GROUP_INVITE)
+        )
+
+    if not buttons:
+        return None
+
+    # Arrange: max 3 buttons in one row
+    return InlineKeyboardMarkup([buttons])
+
+
 async def post_report_to_channel(bot: Bot, report: Report) -> None:
     """Post a report to the configured Telegram channel."""
     caption = _format_report_caption(report)
     screenshot_ids = report.get_screenshots()
+    promo_kb = _get_promo_keyboard()
 
     try:
         if screenshot_ids:
@@ -94,6 +127,7 @@ async def post_report_to_channel(bot: Bot, report: Report) -> None:
                     photo=grid_file,
                     caption=caption,
                     parse_mode="HTML",
+                    reply_markup=promo_kb,
                 )
                 await update_report_channel_msg(report.id, msg.message_id)
                 logger.info(f"Report #{report.id} posted to channel with grid collage")
@@ -104,6 +138,7 @@ async def post_report_to_channel(bot: Bot, report: Report) -> None:
             chat_id=CHANNEL_ID,
             text=caption,
             parse_mode="HTML",
+            reply_markup=promo_kb,
         )
         await update_report_channel_msg(report.id, msg.message_id)
         logger.info(f"Report #{report.id} posted to channel (text only)")

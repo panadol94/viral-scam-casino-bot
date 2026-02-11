@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
 
 CHANNEL_ID = os.getenv("CHANNEL_ID", "")
 GROUP_ID = os.getenv("GROUP_ID", "")
+CHANNEL_INVITE = os.getenv("CHANNEL_INVITE", "")
+GROUP_INVITE = os.getenv("GROUP_INVITE", "")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "")
 
 
 async def check_membership(bot: Bot, user_id: int) -> dict:
@@ -56,15 +59,14 @@ def get_join_keyboard() -> InlineKeyboardMarkup:
     """Build keyboard with join buttons + verify button."""
     buttons = []
 
-    if CHANNEL_ID:
-        # Convert -100xxx to public link format or use invite link
+    if CHANNEL_INVITE:
         buttons.append(
-            InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/c/{str(CHANNEL_ID).replace('-100', '')}")
+            InlineKeyboardButton("📢 Join Channel", url=CHANNEL_INVITE)
         )
 
-    if GROUP_ID:
+    if GROUP_INVITE:
         buttons.append(
-            InlineKeyboardButton("👥 Join Group", url=f"https://t.me/c/{str(GROUP_ID).replace('-100', '')}")
+            InlineKeyboardButton("👥 Join Group", url=GROUP_INVITE)
         )
 
     keyboard = []
