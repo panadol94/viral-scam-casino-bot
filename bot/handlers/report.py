@@ -143,7 +143,7 @@ async def receive_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(
             f"✅ Screenshot #{count} diterima!\n\n"
             f"Hantar lagi atau tekan /done bila selesai.\n"
-            f"(Max 9 screenshot untuk grid yang cantik)",
+            f"(Boleh hantar screenshot sehingga 9)",
             parse_mode="HTML",
         )
 
