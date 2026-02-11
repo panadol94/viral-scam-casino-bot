@@ -1,7 +1,9 @@
-"""Main entry point — bot startup with webhook."""
+"""Main entry point — bot startup with webhook (self-signed SSL)."""
 
 import logging
 import os
+import subprocess
+from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram.ext import Application
@@ -20,12 +22,44 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")
 PORT = int(os.getenv("PORT", "8443"))
 
+CERT_DIR = Path("/app/certs")
+CERT_FILE = CERT_DIR / "cert.pem"
+KEY_FILE = CERT_DIR / "key.pem"
+
 # ── Logging ───────────────────────────────────────────────────────
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+def _generate_self_signed_cert() -> None:
+    """Generate self-signed SSL certificate for webhook."""
+    CERT_DIR.mkdir(parents=True, exist_ok=True)
+    if CERT_FILE.exists() and KEY_FILE.exists():
+        logger.info("SSL certs already exist, reusing.")
+        return
+
+    # Extract IP/domain from WEBHOOK_URL for the CN
+    from urllib.parse import urlparse
+    parsed = urlparse(WEBHOOK_URL)
+    cn = parsed.hostname or "localhost"
+
+    logger.info(f"Generating self-signed SSL cert for CN={cn}...")
+    subprocess.run(
+        [
+            "openssl", "req", "-newkey", "rsa:2048",
+            "-sha256", "-nodes",
+            "-keyout", str(KEY_FILE),
+            "-x509", "-days", "3650",
+            "-out", str(CERT_FILE),
+            "-subj", f"/C=MY/ST=KL/L=KL/O=ScamBot/CN={cn}",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    logger.info("SSL cert generated!")
 
 
 async def post_init(application: Application) -> None:
@@ -68,14 +102,19 @@ def main() -> None:
 
     # Start bot
     if WEBHOOK_URL:
-        # Webhook mode
+        # Generate self-signed cert for webhook SSL
+        _generate_self_signed_cert()
+
         webhook_url = f"{WEBHOOK_URL.rstrip('/')}{WEBHOOK_PATH}"
         logger.info(f"Starting webhook on port {PORT}, URL: {webhook_url}")
+
         application.run_webhook(
             listen="0.0.0.0",
             port=PORT,
             url_path=WEBHOOK_PATH.lstrip("/"),
             webhook_url=webhook_url,
+            cert=str(CERT_FILE),
+            key=str(KEY_FILE),
             drop_pending_updates=True,
         )
     else:
