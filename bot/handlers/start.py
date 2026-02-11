@@ -3,6 +3,8 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
+from bot.services.membership import is_member_of_all, get_join_keyboard, NOT_JOINED_TEXT
+
 
 WELCOME_TEXT = (
     "🚨 <b>Viral Scam Casino Bot</b> 🚨\n"
@@ -81,10 +83,32 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await stats_command(update, context)
 
 
+async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle verify join button — recheck membership."""
+    query = update.callback_query
+    user = update.effective_user
+
+    if await is_member_of_all(context.bot, user.id):
+        await query.answer("✅ Terima kasih! Anda boleh gunakan bot sekarang.")
+        await query.edit_message_text(
+            "✅ <b>Pengesahan berjaya!</b>\n\n"
+            "Tekan /report untuk mula buat laporan scam casino.",
+            parse_mode="HTML",
+        )
+    else:
+        await query.answer("❌ Anda belum join semua channel/group!", show_alert=True)
+        await query.edit_message_text(
+            NOT_JOINED_TEXT,
+            parse_mode="HTML",
+            reply_markup=get_join_keyboard(),
+        )
+
+
 def get_start_handlers() -> list:
     """Return handlers for start module."""
     return [
         CommandHandler("start", start_command),
         CommandHandler("help", help_command),
         CallbackQueryHandler(button_callback, pattern=r"^start_"),
+        CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"),
     ]

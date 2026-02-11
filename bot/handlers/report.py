@@ -18,6 +18,7 @@ from telegram.ext import (
 
 from bot.database import create_report, is_banned
 from bot.services.channel import post_report_to_channel
+from bot.services.membership import NOT_JOINED_TEXT, get_join_keyboard, is_member_of_all
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,15 @@ CASINO_NAME, CASINO_LINK, AMOUNT_LOST, DESCRIPTION, SCREENSHOTS, CONFIRM = range
 async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the report conversation."""
     user = update.effective_user
+
+    # Check membership first
+    if not await is_member_of_all(context.bot, user.id):
+        await update.message.reply_text(
+            NOT_JOINED_TEXT,
+            parse_mode="HTML",
+            reply_markup=get_join_keyboard(),
+        )
+        return ConversationHandler.END
 
     # Check ban
     if await is_banned(user.id):
