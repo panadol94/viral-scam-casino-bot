@@ -11,7 +11,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not context.args:
         await update.message.reply_text(
             "🔍 Guna: <code>/search nama_casino</code>\n"
-            "Contoh: <code>/search mega888</code>",
+            "Contoh: <code>/search hgbt.bet</code>",
             parse_mode="HTML",
         )
         return
@@ -43,7 +43,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not context.args:
         await update.message.reply_text(
             "🔗 Guna: <code>/check link_casino</code>\n"
-            "Contoh: <code>/check mega888.com</code>",
+            "Contoh: <code>/check hgbt.bet</code>",
             parse_mode="HTML",
         )
         return

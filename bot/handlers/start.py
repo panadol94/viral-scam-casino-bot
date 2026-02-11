@@ -74,7 +74,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif query.data == "start_search":
         await query.message.reply_text(
             "🔍 Guna: <code>/search nama_casino</code>\n"
-            "Contoh: <code>/search mega888</code>",
+            "Contoh: <code>/search hgbt.bet</code>",
             parse_mode="HTML",
         )
     elif query.data == "start_stats":

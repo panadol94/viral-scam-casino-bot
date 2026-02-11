@@ -53,7 +53,7 @@ async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     await update.message.reply_text(
         "📝 <b>Laporan Scam Casino Baru</b>\n\n"
         "Sila masukkan <b>nama casino</b> yang menipu.\n\n"
-        "Contoh: <i>Mega888, 918Kiss, Lucky Palace</i>\n\n"
+        "Contoh: <i>hgbt.bet, kingcasino, win2u</i>\n\n"
         "Tekan /cancel untuk batal.",
         parse_mode="HTML",
     )
@@ -66,7 +66,7 @@ async def receive_casino_name(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     await update.message.reply_text(
         "🔗 Masukkan <b>link/URL casino</b> tersebut.\n\n"
-        "Contoh: <i>www.mega888.com</i>\n\n"
+        "Contoh: <i>www.hgbt.bet</i>\n\n"
         "Tekan /skip untuk langkau.",
         parse_mode="HTML",
     )
