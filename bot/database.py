@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     Integer,
@@ -64,6 +65,22 @@ class BannedUser(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+class ChatRecord(Base):
+    """Track every chat (user/group/channel) the bot interacts with."""
+    __tablename__ = "chat_records"
+
+    chat_id = Column(BigInteger, primary_key=True)
+    chat_type = Column(String(20), nullable=False)  # private, group, supergroup, channel
+    title = Column(String(500), nullable=True)
+    username = Column(String(255), nullable=True)
+    first_name = Column(String(255), nullable=True)
+    joined_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    is_active = Column(Boolean, default=True)
 
 
 # ── Engine & Session ──────────────────────────────────────────────
@@ -207,3 +224,52 @@ async def get_banned_list() -> list[BannedUser]:
             select(BannedUser).order_by(BannedUser.banned_at.desc())
         )
         return list(result.scalars().all())
+
+
+# ── Chat Record CRUD ─────────────────────────────────────────────
+
+
+async def upsert_chat(
+    chat_id: int,
+    chat_type: str,
+    title: str | None = None,
+    username: str | None = None,
+    first_name: str | None = None,
+) -> None:
+    """Insert or update a chat record."""
+    async with async_session() as session:
+        existing = await session.get(ChatRecord, chat_id)
+        if existing:
+            existing.chat_type = chat_type
+            existing.title = title
+            existing.username = username
+            existing.first_name = first_name
+            existing.is_active = True
+        else:
+            session.add(ChatRecord(
+                chat_id=chat_id,
+                chat_type=chat_type,
+                title=title,
+                username=username,
+                first_name=first_name,
+            ))
+        await session.commit()
+
+
+async def get_all_active_chats() -> list[ChatRecord]:
+    """Return all chats where bot is still active."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(ChatRecord).where(ChatRecord.is_active == True)
+        )
+        return list(result.scalars().all())
+
+
+async def deactivate_chat(chat_id: int) -> None:
+    """Mark a chat as inactive (bot blocked/kicked)."""
+    async with async_session() as session:
+        chat = await session.get(ChatRecord, chat_id)
+        if chat:
+            chat.is_active = False
+            await session.commit()
+

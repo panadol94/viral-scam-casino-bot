@@ -6,10 +6,12 @@ import subprocess
 from pathlib import Path
 
 from dotenv import load_dotenv
-from telegram.ext import Application
+from telegram import ChatMemberUpdated, Update
+from telegram.ext import Application, ChatMemberHandler, ContextTypes, MessageHandler, filters
 
-from bot.database import init_db
+from bot.database import deactivate_chat, init_db, upsert_chat
 from bot.handlers.admin import get_admin_handlers
+from bot.handlers.broadcast import get_broadcast_handlers
 from bot.handlers.report import get_report_handler
 from bot.handlers.search import get_search_handlers
 from bot.handlers.start import get_start_handlers
@@ -75,9 +77,46 @@ async def post_init(application: Application) -> None:
         ("search", "Cari casino dalam database"),
         ("check", "Semak link casino"),
         ("stats", "Statistik laporan"),
+        ("broadcast", "📢 Broadcast (Owner)"),
         ("help", "Bantuan"),
     ])
     logger.info("Bot commands set!")
+
+
+# ── Auto-tracking helpers ────────────────────────────────────────
+
+
+async def _track_bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Track when bot is added/removed from groups or channels."""
+    member_update: ChatMemberUpdated = update.my_chat_member
+    chat = member_update.chat
+    new_status = member_update.new_chat_member.status
+
+    if new_status in ("member", "administrator"):
+        # Bot added to a chat
+        await upsert_chat(
+            chat_id=chat.id,
+            chat_type=chat.type,
+            title=chat.title,
+            username=chat.username,
+        )
+        logger.info(f"Bot added to {chat.type} '{chat.title}' ({chat.id})")
+    elif new_status in ("left", "kicked"):
+        # Bot removed from chat
+        await deactivate_chat(chat.id)
+        logger.info(f"Bot removed from {chat.type} '{chat.title}' ({chat.id})")
+
+
+async def _track_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Passively track groups the bot is already in when messages arrive."""
+    chat = update.effective_chat
+    if chat and chat.type in ("group", "supergroup"):
+        await upsert_chat(
+            chat_id=chat.id,
+            chat_type=chat.type,
+            title=chat.title,
+            username=chat.username,
+        )
 
 
 def main() -> None:
@@ -99,6 +138,18 @@ def main() -> None:
 
     for handler in get_admin_handlers():
         application.add_handler(handler)
+
+    for handler in get_broadcast_handlers():
+        application.add_handler(handler)
+
+    # ── Auto-tracking: groups/channels ────────────────────────────
+    application.add_handler(
+        ChatMemberHandler(_track_bot_status, ChatMemberHandler.MY_CHAT_MEMBER)
+    )
+    application.add_handler(
+        MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND), _track_group_message),
+        group=-1,  # run before other handlers, won't consume update
+    )
 
     # Start bot
     if WEBHOOK_URL:

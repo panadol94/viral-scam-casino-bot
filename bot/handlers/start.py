@@ -1,9 +1,17 @@
 """Start and help command handlers."""
 
+from pathlib import Path
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
 from bot.services.membership import is_member_of_all, get_join_keyboard, NOT_JOINED_TEXT
+from bot.database import upsert_chat
+
+WELCOME_VIDEO_PATH = Path(__file__).resolve().parent.parent.parent / "assets" / "welcome.mp4"
+
+# Cache file_id after first upload to avoid re-uploading every time
+_cached_video_file_id: str | None = None
 
 
 WELCOME_TEXT = (
@@ -40,6 +48,17 @@ HELP_TEXT = (
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command."""
+    global _cached_video_file_id
+
+    # Track user for broadcast
+    user = update.effective_user
+    await upsert_chat(
+        chat_id=user.id,
+        chat_type="private",
+        username=user.username,
+        first_name=user.first_name,
+    )
+
     keyboard = [
         [InlineKeyboardButton("📝 Buat Laporan", callback_data="start_report")],
         [
@@ -49,11 +68,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
-        WELCOME_TEXT,
+    # Send video with welcome text as caption
+    video = _cached_video_file_id or WELCOME_VIDEO_PATH
+    msg = await update.message.reply_video(
+        video=video,
+        caption=WELCOME_TEXT,
         parse_mode="HTML",
         reply_markup=reply_markup,
     )
+    # Cache file_id so we don't re-upload next time
+    if not _cached_video_file_id and msg.video:
+        _cached_video_file_id = msg.video.file_id
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
