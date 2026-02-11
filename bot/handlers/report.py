@@ -1,6 +1,7 @@
 """Report conversation handler — step-by-step scam report submission."""
 
 import logging
+import os
 
 from telegram import (
     InlineKeyboardButton,
@@ -229,13 +230,23 @@ async def confirm_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
         # Post to channel
-        await post_report_to_channel(context.bot, report)
+        channel_msg_id = await post_report_to_channel(context.bot, report)
+
+        # Build "View in Channel" button if possible
+        channel_invite = os.getenv("CHANNEL_INVITE", "")
+        reply_markup = None
+        if channel_msg_id and channel_invite:
+            post_link = f"{channel_invite}/{channel_msg_id}"
+            reply_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📢 Lihat di Channel", url=post_link)]
+            ])
 
         await query.message.reply_text(
             f"✅ <b>Laporan #{report.id:04d} berjaya dihantar!</b>\n\n"
             "Laporan anda telah dipaparkan di channel. "
             "Terima kasih kerana membantu komuniti! 🙏",
             parse_mode="HTML",
+            reply_markup=reply_markup,
         )
 
     except Exception as e:

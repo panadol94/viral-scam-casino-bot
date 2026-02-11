@@ -97,7 +97,7 @@ def _get_promo_keyboard() -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup([buttons])
 
 
-async def post_report_to_channel(bot: Bot, report: Report) -> None:
+async def post_report_to_channel(bot: Bot, report: Report) -> int | None:
     """Post a report to the configured Telegram channel."""
     caption = _format_report_caption(report)
     screenshot_ids = report.get_screenshots()
@@ -131,7 +131,7 @@ async def post_report_to_channel(bot: Bot, report: Report) -> None:
                 )
                 await update_report_channel_msg(report.id, msg.message_id)
                 logger.info(f"Report #{report.id} posted to channel with grid collage")
-                return
+                return msg.message_id
 
         # No screenshots — send text only
         msg = await bot.send_message(
@@ -142,7 +142,10 @@ async def post_report_to_channel(bot: Bot, report: Report) -> None:
         )
         await update_report_channel_msg(report.id, msg.message_id)
         logger.info(f"Report #{report.id} posted to channel (text only)")
+        return msg.message_id
 
     except Exception as e:
         logger.error(f"Failed to post report #{report.id} to channel: {e}")
         raise
+
+    return None
