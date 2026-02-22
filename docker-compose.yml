@@ -14,11 +14,8 @@ services:
       - CHANNEL_INVITE=${CHANNEL_INVITE}
       - GROUP_INVITE=${GROUP_INVITE}
       - DATABASE_URL=postgresql+asyncpg://scambot:scambot123@db:5432/scambot
-      - WEBHOOK_URL=${WEBHOOK_URL}
-      - WEBHOOK_PATH=/webhook
-      - PORT=8443
-    ports:
-      - "8443:8443"
+      # Polling mode — no WEBHOOK_URL needed
+      # (Set WEBHOOK_URL env var to re-enable webhook mode)
 
   db:
     image: postgres:16-alpine
