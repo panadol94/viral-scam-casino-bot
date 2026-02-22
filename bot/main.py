@@ -158,24 +158,39 @@ def main() -> None:
 
     # Start bot
     if WEBHOOK_URL:
-        # Generate self-signed cert — required when exposing webhook
-        # directly on port 8443 (bypassing reverse proxy).
-        # The cert is uploaded to Telegram via setWebhook so Telegram
-        # trusts our self-signed cert.
-        _generate_self_signed_cert()
-
         webhook_url = f"{WEBHOOK_URL.rstrip('/')}{WEBHOOK_PATH}"
         logger.info(f"Starting webhook on port {PORT}, URL: {webhook_url}")
 
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=WEBHOOK_PATH.lstrip("/"),
-            webhook_url=webhook_url,
-            cert=str(CERT_FILE),
-            key=str(KEY_FILE),
-            drop_pending_updates=True,
-        )
+        # Detect if behind reverse proxy (domain URL) vs direct IP
+        from urllib.parse import urlparse
+        parsed = urlparse(WEBHOOK_URL)
+        hostname = parsed.hostname or ""
+        is_direct_ip = hostname.replace(".", "").isdigit()
+
+        if is_direct_ip:
+            # Direct IP mode — self-signed cert needed
+            _generate_self_signed_cert()
+            logger.info("Direct IP mode — using self-signed SSL cert")
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                url_path=WEBHOOK_PATH.lstrip("/"),
+                webhook_url=webhook_url,
+                cert=str(CERT_FILE),
+                key=str(KEY_FILE),
+                drop_pending_updates=True,
+            )
+        else:
+            # Behind reverse proxy (Traefik/Nginx) — plain HTTP,
+            # proxy handles SSL termination
+            logger.info("Reverse proxy mode — running plain HTTP")
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                url_path=WEBHOOK_PATH.lstrip("/"),
+                webhook_url=webhook_url,
+                drop_pending_updates=True,
+            )
     else:
         # Polling mode (for local dev)
         logger.info("Starting in polling mode (no WEBHOOK_URL set)")
